@@ -6,13 +6,16 @@ import org.reactivestreams.Subscription;
 import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.ConnectableFlux;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofSeconds;
 
 @SpringBootTest
@@ -210,7 +213,7 @@ class ReactorExampleApplicationTests {
     @Test
     public void bufferFiveElementsTest() throws InterruptedException {
         var disposable = Flux.range(1, 20)
-                .delayElements(Duration.ofMillis(400))
+                .delayElements(ofMillis(400))
                 .buffer(5)
                 // collect the items in batches of 5
                 .log()
@@ -225,6 +228,67 @@ class ReactorExampleApplicationTests {
                 .window(5)
                 .doOnNext(flux -> flux.collectList().subscribe(l -> System.out.println("Received :: " + l)))
                 .log()
+                .subscribe();
+    }
+
+    @Test
+    public void mapMethodsTest() throws InterruptedException {
+        System.out.println("Using flatMap():");
+        Flux.range(1, 15)
+                .flatMap(item -> Flux.just(item).delayElements(ofMillis(1)))
+                .subscribe(x -> System.out.print(x + " "));
+
+        Thread.sleep(100);
+
+        System.out.println("\n\nUsing concatMap():");
+        Flux.range(1, 15)
+                .concatMap(item -> Flux.just(item).delayElements(ofMillis(1)))
+                .subscribe(x -> System.out.print(x + " "));
+
+        Thread.sleep(100);
+        System.out.println("\n\nUsing switchMap():");
+        Flux.range(1, 15)
+                .switchMap(item -> Flux.just(item).delayElements(ofMillis(1)))
+                .subscribe(x -> System.out.print(x + " "));
+
+        Thread.sleep(100);
+    }
+
+    @Test
+    public void parallelMethodTest() {
+        Flux.range(1, 10)
+                .parallel(2)
+                .subscribe(i -> System.out.println(Thread.currentThread().getName() + " -> " + i));
+
+        Flux.range(1, 10)
+                .parallel(5)
+                .runOn(Schedulers.parallel())
+                .subscribe(i -> System.out.println(Thread.currentThread().getName() + " -> " + i));
+    }
+
+    @Test
+    public void groupByMethodTest() {
+        Flux.just(1, 3, 5, 2, 4, 6, 11, 12, 13)
+                .groupBy(i -> i % 2 == 0 ? "even:" : "odd:")
+                .concatMap(Flux::collectList)
+                .subscribe(System.out::println);
+
+        Flux.just(1, 3, 5, 2, 4, 6, 11, 12, 13)
+                .groupBy(i -> i % 2 == 0 ? "even:" : "odd:")
+                .concatMap(g -> g.defaultIfEmpty(1)   // if empty groups, show them
+                        .map(String::valueOf)// map to string
+                        .startWith(g.key()))// start with the group's key
+                .subscribe(System.out::println);
+    }
+
+    @Test
+    public void simpleFuncTest() {
+        Mono.just("Hello")
+                .doOnNext(System.out::println)
+                .map(w -> w + " Miha")
+                .doOnNext(System.out::println)
+                .flatMapIterable(w -> Arrays.asList((w.split(""))))
+                .doOnNext(System.out::println)
                 .subscribe();
     }
 }
