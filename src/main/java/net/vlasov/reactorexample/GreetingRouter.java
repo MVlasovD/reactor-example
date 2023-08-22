@@ -22,7 +22,10 @@ public class GreetingRouter {
                 .andRoute(
                         RequestPredicates.GET("/"),
                         greetingHandler::index
-                );
+                )
+                .andRoute(
+                        RequestPredicates.GET("/poo"),
+                        greetingHandler::poo);
     }
 
 }

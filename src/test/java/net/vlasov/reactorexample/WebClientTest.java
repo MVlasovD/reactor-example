@@ -13,15 +13,30 @@ import java.util.Collections;
 
 public class WebClientTest {
 
+    private final WebClient webClient;
 
-    public static void main(String[] args) {
+    public WebClientTest(WebClient webClient) {
+        this.webClient = webClient;
+    }
 
+    public static void main(String[] args) throws InterruptedException {
+
+        WebClient webClient1 = WebClient.create();
+        Message flux = webClient1.get()
+                .uri("https://localhost:8088/hello")
+                .retrieve()
+                .bodyToFlux(Message.class)
+                .log()
+                .blockLast();
+
+        System.out.println(flux);
+        Thread.sleep(10000);
         WebClient client1 = WebClient.create();
 
-        WebClient client2 = WebClient.create("http://localhost:8080");
+        WebClient client2 = WebClient.create("http://localhost:8088");
 
         WebClient client3 = WebClient.builder()
-                .baseUrl("http://localhost:8080")
+                .baseUrl("http://localhost:8088")
                 .defaultCookie("cookieKey", "cookieValue")
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .defaultUriVariables(Collections.singletonMap("url", "http://localhost:8080"))
@@ -29,24 +44,24 @@ public class WebClientTest {
 
         WebTestClient testClient = WebTestClient
                 .bindToServer()
-                .baseUrl("http://localhost:8080")
+                .baseUrl("http://localhost:8088")
                 .build();
 
         RouterFunction function = RouterFunctions.route(
-                RequestPredicates.GET("/resource"),
+                RequestPredicates.GET("/hello"),
                 request -> ServerResponse.ok().build()
         );
 
         WebTestClient
-                .bindToRouterFunction(function)
-                .build().get().uri("/resource")
+                .bindToRouterFunction(function).build()
+                .get().uri("/resource")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().isEmpty();
 
         WebTestClient
                 .bindToServer()
-                .baseUrl("http://localhost:8080")
+                .baseUrl("http://localhost:8088")
                 .build()
                 .post()
                 .uri("/resource")

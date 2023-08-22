@@ -1,5 +1,7 @@
 package net.vlasov.reactorexample;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -13,6 +15,7 @@ import reactor.test.StepVerifier;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static java.time.Duration.ofMillis;
@@ -20,6 +23,8 @@ import static java.time.Duration.ofSeconds;
 
 @SpringBootTest
 class ReactorExampleApplicationTests {
+
+    MeterRegistry registry = new SimpleMeterRegistry();
 
     @Test
     void contextLoads() {
@@ -69,12 +74,13 @@ class ReactorExampleApplicationTests {
     @Test
     public void stepVerifierTest() {
         Flux<String> fluxCalc = Flux.just(-1, 0, 1)
-                .map(i -> "10 / " + i + " = " + (10 / i));
+                .map(i -> "10 / " + i + " = " + (10 / i)).log();
 
         StepVerifier.create(fluxCalc)
                 .expectNextCount(1)
                 .expectError(ArithmeticException.class)
-                .verify();
+                .verify()
+                ;
     }
 
     @Test
@@ -247,7 +253,7 @@ class ReactorExampleApplicationTests {
 
         Thread.sleep(100);
         System.out.println("\n\nUsing switchMap():");
-        Flux.range(1, 15)
+        Flux.range(1, 17)
                 .switchMap(item -> Flux.just(item).delayElements(ofMillis(1)))
                 .subscribe(x -> System.out.print(x + " "));
 
@@ -263,7 +269,7 @@ class ReactorExampleApplicationTests {
         Flux.range(1, 10)
                 .parallel(5)
                 .runOn(Schedulers.parallel())
-                .subscribe(i -> System.out.println(Thread.currentThread().getName() + " -> " + i));
+                .subscribe(i -> System.out.println("RunOn::" + Thread.currentThread().getName() + " -> " + i));
     }
 
     @Test
@@ -273,11 +279,15 @@ class ReactorExampleApplicationTests {
                 .concatMap(Flux::collectList)
                 .subscribe(System.out::println);
 
-        Flux.just(1, 3, 5, 2, 4, 6, 11, 12, 13)
+        Flux.just(1, 10 , 8, 3, 5, 2, 4, 6, 11, 12, 13)
                 .groupBy(i -> i % 2 == 0 ? "even:" : "odd:")
-                .concatMap(g -> g.defaultIfEmpty(1)   // if empty groups, show them
-                        .map(String::valueOf)// map to string
-                        .startWith(g.key()))// start with the group's key
+                .concatMap(g -> g.defaultIfEmpty(1)
+                        // if empty groups, show them
+                        .map(String::valueOf)
+                        .sort(Comparator.comparing(Integer::valueOf))
+                        // map to string
+                        .startWith(g.key()))
+                // start with the group's key
                 .subscribe(System.out::println);
     }
 
